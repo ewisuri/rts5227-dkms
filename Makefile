@@ -24,7 +24,7 @@
 
 KVERSION := $(shell uname -r)
 
-TARGET_MODULE := rts5229
+TARGET_MODULE := rts5227
 
 EXTRA_CFLAGS := -Idrivers/scsi
 

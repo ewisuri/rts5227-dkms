@@ -54,7 +54,7 @@
 #include "trace.h"
 #include "general.h"
 
-#define CR_DRIVER_NAME		"rts5229"
+#define CR_DRIVER_NAME		"rts5227"
 
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 14)
