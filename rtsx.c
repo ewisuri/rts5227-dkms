@@ -35,7 +35,7 @@
 #include "ms.h"
 #include "sd.h"
 
-#define DRIVER_VERSION 		"v1.07"
+#define DRIVER_VERSION 		"v1.08"
 
 MODULE_DESCRIPTION("Realtek PCI-Express card reader driver");
 MODULE_LICENSE("GPL");
