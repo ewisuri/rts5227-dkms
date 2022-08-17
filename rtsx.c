@@ -73,7 +73,7 @@ static irqreturn_t rtsx_interrupt(int irq, void *dev_id);
 
 static const char* host_info(struct Scsi_Host *host)
 {
-	return "SCSI emulation for RTS5229";
+	return "SCSI emulation for RTS5227";
 }
 
 static int slave_alloc (struct scsi_device *sdev)
@@ -129,9 +129,15 @@ static int slave_configure(struct scsi_device *sdev)
 #define SPRINTF(args...) \
 	do { if (pos < buffer+length) pos += sprintf(pos, ## args); } while (0)
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 static int queuecommand_lck(struct scsi_cmnd *srb,
 			void (*done)(struct scsi_cmnd *))
 {
+#else
+static int queuecommand_lck(struct scsi_cmnd *srb)
+{
+	void (*done)(struct scsi_cmnd *) = scsi_done;
+#endif
 	struct rtsx_dev *dev = host_to_rtsx(srb->device->host);
 	struct rtsx_chip *chip = dev->chip;
 
@@ -150,8 +156,9 @@ static int queuecommand_lck(struct scsi_cmnd *srb,
 		return 0;
 	}
 
-	
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 	srb->scsi_done = done;
+#endif
 	chip->srb = srb;
 	complete(&dev->cmnd_ready);
 
@@ -459,7 +466,7 @@ static int rtsx_control_thread(void * __dev)
 
 		
 		if (rtsx_chk_stat(chip, RTSX_STAT_DISCONNECT)) {
-			printk(KERN_INFO "-- rts5229-control exiting\n");
+			printk(KERN_INFO "-- rts5227-control exiting\n");
 			mutex_unlock(&dev->dev_mutex);
 			break;
 		}
@@ -513,7 +520,11 @@ static int rtsx_control_thread(void * __dev)
 
 		
 		else if (chip->srb->result != DID_ABORT << 16) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 			chip->srb->scsi_done(chip->srb);
+#else
+			scsi_done(chip->srb);
+#endif
 		} else {
 SkipForAbort:
 			printk(KERN_ERR "scsi command aborted\n");
@@ -547,7 +558,11 @@ SkipForAbort:
 	 * This is important in preemption kernels, which transfer the flow
 	 * of execution immediately upon a complete().
 	 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 	complete_and_exit(&dev->control_exit, 0);
+#else
+	kthread_complete_and_exit(&dev->control_exit, 0);
+#endif
 }
 
 
@@ -589,7 +604,11 @@ static int rtsx_polling_thread(void * __dev)
 		mutex_unlock(&dev->dev_mutex);
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 	complete_and_exit(&dev->polling_exit, 0);
+#else
+	kthread_complete_and_exit(&dev->polling_exit, 0);
+#endif
 }
 
 /*
@@ -730,7 +749,11 @@ static void quiesce_and_remove_host(struct rtsx_dev *dev)
 	if (chip->srb) {
 		chip->srb->result = DID_NO_CONNECT << 16;
 		scsi_lock(host);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 		chip->srb->scsi_done(dev->chip->srb);
+#else
+		scsi_done(chip->srb);
+#endif
 		chip->srb = NULL;
 		scsi_unlock(host);
 	}
@@ -773,7 +796,11 @@ static int rtsx_scan_thread(void * __dev)
 		
 	}
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 16, 0)
 	complete_and_exit(&dev->scanning_done, 0);
+#else
+	kthread_complete_and_exit(&dev->scanning_done, 0);
+#endif
 }
 
 static void rtsx_init_options(struct rtsx_chip *chip)
@@ -1001,7 +1028,7 @@ static int  rtsx_probe(struct pci_dev *pci, const struct pci_device_id *pci_id)
 	dev->ctl_thread = th;
 
 	
-	th = kthread_create(rtsx_scan_thread, dev, "rts5229-scan");
+	th = kthread_create(rtsx_scan_thread, dev, "rts5227-scan");
 	if (IS_ERR(th)) {
 		printk(KERN_ERR "Unable to start the device-scanning thread\n");
 		complete(&dev->scanning_done);
@@ -1013,7 +1040,7 @@ static int  rtsx_probe(struct pci_dev *pci, const struct pci_device_id *pci_id)
 	wake_up_process(th);
 
 	
-	th = kthread_run(rtsx_polling_thread, dev, "rts5229-polling");
+	th = kthread_run(rtsx_polling_thread, dev, "rts5227-polling");
 	if (IS_ERR(th)) {
 		printk(KERN_ERR "Unable to start the device-polling thread\n");
 		quiesce_and_remove_host(dev);

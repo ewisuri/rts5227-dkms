@@ -22,7 +22,7 @@
 # Makefile for the PCI-Express Card Reader drivers.
 #
 
-KVERSION := $(shell uname -r)
+KVERSION := $KERNELRELEASE
 
 TARGET_MODULE := rts5227
 
